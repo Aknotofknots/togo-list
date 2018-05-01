@@ -1,5 +1,9 @@
-import React, { Component } from "react";
+import React, { Component, Fragment } from "react";
 import mapboxgl from "mapbox-gl";
+import MapboxGeocoder from "@mapbox/mapbox-gl-geocoder";
+
+import List from "../List";
+import ListItem from "../ListItem";
 
 mapboxgl.accessToken =
   "pk.eyJ1IjoiYWtub3QiLCJhIjoiY2pnZDg3NmRlNDRnMTM0bGp0bHh3aHJ0ZSJ9.Ibybk6NhLb4xuGnyW2HiTQ"; //TODO - get dotenv for this
@@ -7,18 +11,104 @@ mapboxgl.accessToken =
 class Map extends Component {
   state = {
     lng: 5,
-    lat: 100,
-    zoom: 1.5
+    lat: 34,
+    zoom: 1.5,
+    travelDestinations: [],
+    currentCoordinates: {}
   };
 
   componentDidMount() {
     const { lng, lat, zoom } = this.state;
+    const geoCoder = this.initializeGeoCoder();
 
-    this.map = new mapboxgl.Map({
-      container: this.mapContainer,
-      style: "mapbox://styles/mapbox/streets-v10?optimize=true"
+    this.map = this.initializeMap();
+    this.map.addControl(geoCoder);
+    this.updateMapOnMove();
+    geoCoder.on("result", ev => {});
+
+    this.map.on("load", () => {
+      const popup = new mapboxgl.Popup({ offset: 40, closeOnClick: false });
+      const marker = new mapboxgl.Marker();
+      const travelDestinations = [];
+
+      console.log("map is loaded");
+
+      this.map.addSource("single-point", {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: []
+        }
+      });
+
+      this.map.addLayer({
+        id: "point",
+        source: "single-point",
+        type: "circle",
+        paint: {
+          "circle-radius": 5,
+          "circle-color": "#007cbf"
+        }
+      });
+
+      this.map.on("click", e => {
+        const lngLat = e.lngLat;
+        this.setState({ currentCoordinates: lngLat });
+
+        popup
+          .setLngLat(lngLat)
+          .setHTML(
+            `<input id="user-input" type="text"/> <br> <button id="submit-btn">save place</button>`
+          )
+          .addTo(this.map);
+
+        //  marker.setLngLat(lngLat).addTo(this.map);
+
+        this.map.getSource("single-point").setData({
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: {
+                type: "Point",
+                coordinates: [e.lngLat.lng, e.lngLat.lat]
+              }
+            }
+          ]
+        });
+      });
+
+      this.map.on("sourcedataloading", (e, error) => {
+        if (e.isSourceLoaded) {
+          const userInput = document.getElementById("user-input");
+          const submitBtn = document.getElementById("submit-btn");
+
+          submitBtn.addEventListener("click", () => {
+            const input = userInput.value && userInput.value;
+            if (input !== "") {
+              travelDestinations.push({ destination: input });
+              this.setState({ travelDestinations });
+              const markerPopup = new mapboxgl.Popup({ offset: 40 }).setHTML(
+                `<h3> ${input} </h3>`
+              );
+              new mapboxgl.Marker()
+                .setLngLat(this.state.currentCoordinates)
+                .setPopup(markerPopup)
+                .addTo(this.map);
+
+              popup.remove();
+            } else return;
+          });
+        }
+      });
     });
+  }
 
+  componentWillUnmount() {
+    this.map.remove();
+  }
+
+  updateMapOnMove = () => {
     this.map.on("move", () => {
       const { lng, lat } = this.map.getCenter();
 
@@ -28,14 +118,33 @@ class Map extends Component {
         zoom: this.map.getZoom().toFixed(2)
       });
     });
-  }
+  };
 
-  componentWillUnmount() {
-    this.map.remove();
-  }
+  initializeMap = () => {
+    return new mapboxgl.Map({
+      container: this.mapContainer,
+      style: "mapbox://styles/mapbox/streets-v10?optimize=true",
+      zoom: 2
+    });
+  };
+
+  initializeGeoCoder = () => {
+    return new MapboxGeocoder({
+      accessToken:
+        "pk.eyJ1IjoiYWtub3QiLCJhIjoiY2pnZDg3NmRlNDRnMTM0bGp0bHh3aHJ0ZSJ9.Ibybk6NhLb4xuGnyW2HiTQ" //TODO - get dotenv for this
+    });
+  };
 
   render() {
-    return <div className="app" ref={el => (this.mapContainer = el)} />;
+    return (
+      <Fragment>
+        <div className="app" ref={el => (this.mapContainer = el)}>
+          <List>
+            <ListItem travelDestinations={this.state.travelDestinations} />
+          </List>
+        </div>
+      </Fragment>
+    );
   }
 }
 
