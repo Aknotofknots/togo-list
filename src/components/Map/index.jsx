@@ -19,19 +19,17 @@ class Map extends Component {
 
   componentDidMount() {
     const { lng, lat, zoom } = this.state;
-    const geoCoder = this.initializeGeoCoder();
+    // const geoCoder = this.initializeGeoCoder();
 
     this.map = this.initializeMap();
-    this.map.addControl(geoCoder);
+    // this.map.addControl(geoCoder);
     this.updateMapOnMove();
-    geoCoder.on("result", ev => {});
+    // geoCoder.on("result", ev => {});
 
     this.map.on("load", () => {
       const popup = new mapboxgl.Popup({ offset: 40, closeOnClick: false });
       const marker = new mapboxgl.Marker();
       const travelDestinations = [];
-
-      console.log("map is loaded");
 
       this.map.addSource("single-point", {
         type: "geojson",
@@ -46,7 +44,7 @@ class Map extends Component {
         source: "single-point",
         type: "circle",
         paint: {
-          "circle-radius": 5,
+          "circle-radius": 8,
           "circle-color": "#007cbf"
         }
       });
@@ -58,7 +56,7 @@ class Map extends Component {
         popup
           .setLngLat(lngLat)
           .setHTML(
-            `<input id="user-input" type="text"/> <br> <button id="submit-btn">save place</button>`
+            `<h4>Name you destination</h4> <input id="user-input" type="text"/> <br></br> <button id="submit-btn">save place</button>`
           )
           .addTo(this.map);
 
@@ -86,7 +84,10 @@ class Map extends Component {
           submitBtn.addEventListener("click", () => {
             const input = userInput.value && userInput.value;
             if (input !== "") {
-              travelDestinations.push({ destination: input });
+              travelDestinations.push({
+                destination: input,
+                coordinates: this.state.currentCoordinates
+              });
               this.setState({ travelDestinations });
               const markerPopup = new mapboxgl.Popup({ offset: 40 }).setHTML(
                 `<h3> ${input} </h3>`
@@ -128,19 +129,29 @@ class Map extends Component {
     });
   };
 
-  initializeGeoCoder = () => {
+  /* initializeGeoCoder = () => {
     return new MapboxGeocoder({
       accessToken:
         "pk.eyJ1IjoiYWtub3QiLCJhIjoiY2pnZDg3NmRlNDRnMTM0bGp0bHh3aHJ0ZSJ9.Ibybk6NhLb4xuGnyW2HiTQ" //TODO - get dotenv for this
     });
+  };*/
+
+  flyTo = () => {
+    this.map.flyTo();
   };
 
   render() {
     return (
       <Fragment>
         <div className="app" ref={el => (this.mapContainer = el)}>
+          <div className="list-head">
+            <p>List</p>
+          </div>
           <List>
-            <ListItem travelDestinations={this.state.travelDestinations} />
+            <ListItem
+              onClick={this.flyTo}
+              travelDestinations={this.state.travelDestinations}
+            />
           </List>
         </div>
       </Fragment>
